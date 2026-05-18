@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Ladu & Gopal — Cat Sitter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --cream:         #FBF5EC;
+      --warm-white:    #FFFDF8;
+      --clay:          #B85C38;
+      --clay-light:    #E0896A;
+      --clay-faint:    #FAEEE8;
+      --sage:          #5E8B6D;
+      --sage-light:    #A4C5AD;
+      --sage-faint:    #EBF4EE;
+      --ink:           #2A1A0E;
+      --ink-mid:       #7A4F35;
+      --ink-light:     #B8916F;
+      --ink-faint:     #F0E6DA;
+      --white:         #FFFFFF;
+      --border:        #E8D9C5;
+      --shadow-sm:     0 1px 4px rgba(42,26,14,.07);
+      --shadow:        0 3px 14px rgba(42,26,14,.10);
+      --shadow-lg:     0 8px 32px rgba(42,26,14,.14);
+      --r:             18px;
+      --r-sm:          11px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+
+    /* ── OFFLINE BANNER ── */
+    #offlineBanner {
+      display: none; background: #FFF3CD; color: #856404;
+      padding: 8px 16px; font-size: .8rem; text-align: center;
+      border-bottom: 1px solid #FFECB5;
+    }
+    #offlineBanner.show { display: block; }
+
+    /* ── SETUP OVERLAY ── */
+    #setupOverlay {
+      position: fixed; inset: 0; background: rgba(42,26,14,.65);
+      z-index: 300; display: flex; align-items: flex-end;
+      padding: 12px; backdrop-filter: blur(3px);
+    }
+    #setupOverlay.hidden { display: none; }
+    .setup-sheet {
+      background: var(--white); border-radius: var(--r); padding: 28px 22px 32px;
+      width: 100%; max-width: 460px; margin: 0 auto;
+      box-shadow: var(--shadow-lg);
+    }
+    .setup-sheet h2 {
+      font-family: 'Lora', serif; font-size: 1.4rem; margin-bottom: 6px;
+    }
+    .setup-sheet .desc {
+      font-size: .82rem; color: var(--ink-mid); line-height: 1.6; margin-bottom: 20px;
+    }
+    .setup-sheet input {
+      display: block; width: 100%; padding: 12px 14px;
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      font-family: 'Nunito', sans-serif; font-size: .9rem; color: var(--ink);
+      margin-bottom: 10px; background: var(--cream);
+    }
+    .setup-sheet input:focus { outline: none; border-color: var(--clay); }
+    .btn-primary {
+      width: 100%; padding: 15px; background: var(--clay); color: #fff;
+      border: none; border-radius: var(--r-sm); font-family: 'Nunito', sans-serif;
+      font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+      transition: background .2s;
+    }
+    .btn-primary:active { background: #9E4D2C; }
+    .setup-link {
+      display: block; margin-top: 14px; text-align: center;
+      font-size: .75rem; color: var(--clay); text-decoration: none;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--ink);
+      padding: 18px 16px 14px;
+      padding-top: max(18px, env(safe-area-inset-top, 18px));
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner { max-width: 480px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+    .header-title { font-family: 'Lora', serif; font-size: 1.35rem; font-weight: 600; color: var(--cream); }
+    .header-sub { font-size: .7rem; color: rgba(251,245,236,.5); letter-spacing: .08em; text-transform: uppercase; margin-top: 1px; }
+    .sync-pill {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.1); padding: 5px 10px;
+      border-radius: 100px; font-size: .72rem; color: rgba(251,245,236,.7);
+    }
+    .sync-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #4CAF50;
+      flex-shrink: 0; transition: background .3s;
+    }
+    .sync-dot.syncing { background: #FFA726; animation: blink 1s infinite; }
+    .sync-dot.error   { background: #EF5350; }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--warm-white); border-bottom: 1px solid var(--border);
+      display: flex; position: sticky; top: 63px; z-index: 90;
+    }
+    nav button {
+      flex: 1; padding: 13px 6px; border: none; background: none;
+      font-family: 'Nunito', sans-serif; font-size: .83rem; font-weight: 600;
+      color: var(--ink-light); cursor: pointer; letter-spacing: .02em;
+      border-bottom: 3px solid transparent; transition: all .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    nav button.active { color: var(--clay); border-bottom-color: var(--clay); }
+
+    /* ── MAIN ── */
+    main { padding: 16px; max-width: 480px; margin: 0 auto; padding-bottom: 40px; }
+
+    /* ── TABS ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── DATE BAR ── */
+    .date-bar { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; }
+    .date-bar input[type="date"] {
+      flex: 1; padding: 11px 14px; border: 1.5px solid var(--border);
+      border-radius: var(--r-sm); font-family: 'Nunito', sans-serif;
+      font-size: .9rem; color: var(--ink); background: var(--white);
+      -webkit-appearance: none; appearance: none;
+    }
+    .date-bar input:focus { outline: none; border-color: var(--clay); }
+    .icon-btn {
+      padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      background: var(--white); font-size: .9rem; cursor: pointer; color: var(--ink-mid);
+      -webkit-tap-highlight-color: transparent; transition: background .15s;
+    }
+    .icon-btn:active { background: var(--ink-faint); }
+
+    /* ── SITTER BAR ── */
+    .sitter-bar { margin-bottom: 16px; }
+    .label-sm {
+      font-size: .72rem; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--ink-light); margin-bottom: 8px; display: block;
+    }
+    .sitter-options { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sitter-btn {
+      padding: 8px 18px; border-radius: 100px; border: 1.5px solid var(--border);
+      background: var(--white); font-family: 'Nunito', sans-serif; font-size: .85rem;
+      font-weight: 600; cursor: pointer; color: var(--ink-mid);
+      -webkit-tap-highlight-color: transparent; transition: all .2s;
+    }
+    .sitter-btn.active { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+    /* ── VISIT CARD ── */
+    .visit-card {
+      background: var(--white); border-radius: var(--r); box-shadow: var(--shadow);
+      margin-bottom: 16px; overflow: hidden;
+      border: 1px solid rgba(232,217,197,.6);
+    }
+    .visit-header {
+      padding: 14px 16px; display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 1px solid var(--border);
+    }
+    .visit-title {
+      font-family: 'Lora', serif; font-size: 1.1rem; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .visit-ts { font-size: .72rem; color: var(--ink-light); text-align: right; max-width: 120px; line-height: 1.4; }
+
+    /* ── CHECKLIST ── */
+    .check-item {
+      display: flex; align-items: center; padding: 13px 16px;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      border-bottom: 1px solid var(--ink-faint); transition: background .15s;
+      user-select: none;
+    }
+    .check-item:last-child { border-bottom: none; }
+    .check-item:active { background: var(--clay-faint); }
+    .custom-check {
+      width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--border);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--cream); transition: all .2s; color: transparent; font-size: .85rem;
+    }
+    .check-item.done .custom-check {
+      background: var(--clay); border-color: var(--clay); color: #fff;
+    }
+    .check-item.done .check-name {
+      text-decoration: line-through; color: var(--ink-light);
+    }
+    .check-info { margin-left: 13px; flex: 1; }
+    .check-name { font-size: .95rem; font-weight: 600; }
+    .check-hint { font-size: .73rem; color: var(--ink-light); margin-top: 1px; }
+
+    /* ── PROGRESS ── */
+    .progress-wrap { padding: 12px 16px 14px; border-top: 1px solid var(--ink-faint); }
+    .progress-meta { display: flex; justify-content: space-between; margin-bottom: 7px; }
+    .progress-count { font-size: .75rem; color: var(--ink-mid); font-weight: 600; }
+    .progress-pct { font-size: .75rem; color: var(--ink-light); }
+    .progress-bar { height: 5px; background: var(--ink-faint); border-radius: 3px; overflow: hidden; }
+    .progress-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--clay), var(--clay-light));
+      transition: width .4s cubic-bezier(.34,1.2,.64,1);
+    }
+
+    /* ── NOTES ── */
+    .notes-section { padding: 14px 16px; border-top: 1px solid var(--border); }
+    .notes-section textarea {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: var(--r-sm); font-family: 'Nunito', sans-serif;
+      font-size: .88rem; color: var(--ink); background: var(--cream);
+      resize: none; min-height: 76px; line-height: 1.5;
+      transition: border-color .2s;
+    }
+    .notes-section textarea:focus { outline: none; border-color: var(--clay); }
+
+    /* ── SECTION TITLE ── */
+    .section-title { font-family: 'Lora', serif; font-size: 1.05rem; font-weight: 600; margin: 6px 0 12px; }
+
+    /* ── CAT CARDS ── */
+    .feed-hero {
+      background: linear-gradient(135deg, #A84E2B 0%, #C4633A 50%, #D4754C 100%);
+      border-radius: var(--r); padding: 18px; margin-bottom: 16px;
+      display: flex; gap: 0; color: #fff; align-items: center;
+      box-shadow: 0 4px 20px rgba(168,78,43,.30);
+    }
+    .feed-col { flex: 1; text-align: center; }
+    .feed-time-val { font-family: 'Lora', serif; font-size: 1.6rem; font-weight: 400; }
+    .feed-time-lbl { font-size: .7rem; opacity: .75; text-transform: uppercase; letter-spacing: .07em; margin-top: 2px; }
+    .feed-divider { width: 1px; background: rgba(255,255,255,.25); align-self: stretch; margin: 0 4px; }
+    .feed-note { margin-top: 10px; font-size: .78rem; color: var(--ink-light); text-align: center; }
+
+    .cat-card {
+      background: var(--white); border-radius: var(--r); box-shadow: var(--shadow);
+      margin-bottom: 16px; overflow: hidden; border: 1px solid rgba(232,217,197,.6);
+    }
+    .cat-head {
+      padding: 16px; display: flex; align-items: center; gap: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cat-avatar {
+      width: 54px; height: 54px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem; flex-shrink: 0;
+    }
+    .ladu-av { background: var(--clay-faint); }
+    .gopal-av { background: var(--sage-faint); }
+    .cat-head-info {}
+    .cat-cat-name { font-family: 'Lora', serif; font-size: 1.25rem; font-weight: 600; }
+    .cat-tagline { font-size: .77rem; color: var(--ink-light); margin-top: 2px; }
+    .cat-body { padding: 14px 16px; }
+    .info-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+    .info-row:last-child { margin-bottom: 0; }
+    .info-ico { font-size: .95rem; flex-shrink: 0; line-height: 1.5; }
+    .info-txt { font-size: .86rem; line-height: 1.5; flex: 1; }
+
+    .warning-box {
+      background: #FFF8E1; border-radius: var(--r-sm); padding: 12px 14px;
+      margin: 10px 0;
+    }
+    .warning-box .wt {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: #7C6200; margin-bottom: 7px;
+    }
+    .warning-step { font-size: .84rem; color: #5C4500; padding: 3px 0; line-height: 1.4; }
+
+    /* ── INFO CARDS (building) ── */
+    .info-card {
+      background: var(--white); border-radius: var(--r); box-shadow: var(--shadow);
+      margin-bottom: 16px; overflow: hidden; border: 1px solid rgba(232,217,197,.6);
+    }
+    .info-card-head {
+      padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+      background: var(--ink); color: var(--cream);
+    }
+    .info-card-head h3 { font-family: 'Lora', serif; font-size: 1rem; font-weight: 600; }
+    .info-rows { padding: 4px 0; }
+    .info-kv {
+      display: flex; gap: 12px; padding: 11px 16px;
+      border-bottom: 1px solid var(--ink-faint); align-items: flex-start;
+    }
+    .info-kv:last-child { border-bottom: none; }
+    .info-k {
+      font-size: .73rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--ink-light); min-width: 70px;
+      padding-top: 1px; flex-shrink: 0;
+    }
+    .info-v { font-size: .87rem; line-height: 1.5; flex: 1; }
+    .badge {
+      display: inline-block; padding: 2px 9px; border-radius: 100px;
+      font-size: .72rem; font-weight: 700;
+    }
+    .bg-warn { background: #FFF3E0; color: #E65100; }
+
+    /* ── RESET CONFIG ── */
+    .reset-btn {
+      display: block; margin: 20px auto 0; padding: 10px 20px;
+      background: none; border: 1.5px solid var(--border); border-radius: 100px;
+      font-family: 'Nunito', sans-serif; font-size: .8rem; color: var(--ink-light);
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .reset-btn:active { background: var(--ink-faint); }
+  </style>
+</head>
+<body>
+
+<!-- Offline banner -->
+<div id="offlineBanner">⚠️ Offline — changes will sync when reconnected</div>
+
+<!-- Firebase setup modal -->
+<div id="setupOverlay">
+  <div class="setup-sheet">
+    <h2>🔥 Firebase Setup</h2>
+    <p class="desc">
+      Enter your Firebase project credentials to enable real-time sync across all sitters.
+      This is saved to your device — you'll only need to do it once.
+    </p>
+    <input id="fb-projectId" type="text" placeholder="Project ID  (e.g. ladu-gopal-catsitter)" autocomplete="off" />
+    <input id="fb-apiKey"    type="text" placeholder="API Key"    autocomplete="off" />
+    <input id="fb-appId"     type="text" placeholder="App ID"     autocomplete="off" />
+    <button class="btn-primary" onclick="saveFirebaseConfig()">Connect & Start →</button>
+    <a class="setup-link" href="https://console.firebase.google.com" target="_blank" rel="noopener">
+      Get credentials at Firebase Console → Project Settings
+    </a>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="header-title">🐾 Ladu &amp; Gopal</div>
+      <div class="header-sub">Cat Sitter Dashboard</div>
+    </div>
+    <div class="sync-pill">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncLabel">–</span>
+    </div>
+  </div>
+</header>
+
+<!-- Nav -->
+<nav>
+  <button class="active" onclick="showTab('today', this)">📋 Today</button>
+  <button onclick="showTab('cats', this)">🐱 The Cats</button>
+  <button onclick="showTab('building', this)">🏢 Building</button>
+</nav>
+
+<!-- Main -->
+<main>
+
+  <!-- ── TODAY TAB ── -->
+  <div class="tab-panel active" id="tab-today">
+
+    <div class="date-bar">
+      <button class="icon-btn" onclick="changeDate(-1)" aria-label="Previous day">◀</button>
+      <input type="date" id="dateInput" onchange="loadData()" />
+      <button class="icon-btn" onclick="changeDate(1)" aria-label="Next day">▶</button>
+    </div>
+
+    <div class="sitter-bar">
+      <span class="label-sm">Your name</span>
+      <div class="sitter-options" id="sitterOptions"></div>
+    </div>
+
+    <!-- Morning -->
+    <div class="visit-card">
+      <div class="visit-header">
+        <div class="visit-title">🌅 Morning Visit</div>
+        <div class="visit-ts" id="morning-ts">–</div>
+      </div>
+      <div id="morning-list"></div>
+      <div class="progress-wrap">
+        <div class="progress-meta">
+          <span class="progress-count" id="morning-count">0 of 5 done</span>
+          <span class="progress-pct" id="morning-pct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="morning-bar" style="width:0"></div></div>
+      </div>
+      <div class="notes-section">
+        <span class="label-sm">Notes</span>
+        <textarea id="morning-notes" placeholder="How were the cats? Anything to note…" oninput="scheduleNoteSave('morning')"></textarea>
+      </div>
+    </div>
+
+    <!-- Evening -->
+    <div class="visit-card">
+      <div class="visit-header">
+        <div class="visit-title">🌙 Evening Visit</div>
+        <div class="visit-ts" id="evening-ts">–</div>
+      </div>
+      <div id="evening-list"></div>
+      <div class="progress-wrap">
+        <div class="progress-meta">
+          <span class="progress-count" id="evening-count">0 of 5 done</span>
+          <span class="progress-pct" id="evening-pct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="evening-bar" style="width:0"></div></div>
+      </div>
+      <div class="notes-section">
+        <span class="label-sm">Notes</span>
+        <textarea id="evening-notes" placeholder="Evening mood, appetite, anything unusual…" oninput="scheduleNoteSave('evening')"></textarea>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetConfig()">⚙️ Reset Firebase config</button>
+  </div>
+
+  <!-- ── CATS TAB ── -->
+  <div class="tab-panel" id="tab-cats">
+
+    <div class="feed-hero">
+      <div class="feed-col">
+        <div class="feed-time-val">6:30 AM</div>
+        <div class="feed-time-lbl">Morning Feed</div>
+      </div>
+      <div class="feed-divider"></div>
+      <div class="feed-col">
+        <div class="feed-time-val">6:00 PM</div>
+        <div class="feed-time-lbl">Evening Feed</div>
+      </div>
+    </div>
+    <p class="feed-note">Automated via Petlibro · Max <strong>8–10 treat bits</strong> per cat per day</p>
+
+    <!-- Ladu -->
+    <div class="cat-card" style="margin-top:14px">
+      <div class="cat-head">
+        <div class="cat-avatar ladu-av">🐈‍⬛</div>
+        <div class="cat-head-info">
+          <div class="cat-cat-name">Ladu</div>
+          <div class="cat-tagline">Dark rear paws · Intelligent &amp; playful</div>
+        </div>
+      </div>
+      <div class="cat-body">
+        <div class="info-row"><span class="info-ico">🪶</span><span class="info-txt">Loves feather toys, jumping, sneak attacks, and hiding in corners. Enjoys separate one-on-one attention — don't share sessions with Gopal.</span></div>
+        <div class="info-row"><span class="info-ico">🫶</span><span class="info-txt">Likes belly rubs when in the right mood.</span></div>
+        <div class="info-row"><span class="info-ico">🛗</span><span class="info-txt">May hide in the sky lounge. Call <strong>"treat, treat"</strong> and offer Churu to lure back out.</span></div>
+        <div class="warning-box">
+          <div class="wt">⚠️ Boundary signals — respect in sequence</div>
+          <div class="warning-step">① Light protest sound → slow down, give space</div>
+          <div class="warning-step">② Mild growling → let go immediately</div>
+          <div class="warning-step">③ Loud growling / claws → disengage fully, step back</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gopal -->
+    <div class="cat-card">
+      <div class="cat-head">
+        <div class="cat-avatar gopal-av">🐱</div>
+        <div class="cat-head-info">
+          <div class="cat-cat-name">Gopal</div>
+          <div class="cat-tagline">White rear paws · Bigger cat · Very affectionate</div>
+        </div>
+      </div>
+      <div class="cat-body">
+        <div class="info-row"><span class="info-ico">💗</span><span class="info-txt">Extremely affectionate and vocal. Loves touch and cuddles — very tolerant and patient.</span></div>
+        <div class="info-row"><span class="info-ico">🍽️</span><span class="info-txt"><strong>Will eat unsafe human food if accessible.</strong> Keep counters and bags secured during your visit.</span></div>
+        <div class="info-row"><span class="info-ico">🎯</span><span class="info-txt">Give Gopal separate attention from Ladu each visit to avoid competition or stress.</span></div>
+      </div>
+    </div>
+
+    <!-- Care summary -->
+    <div class="info-card">
+      <div class="info-card-head"><span>🧴</span><h3>Care Quick Reference</h3></div>
+      <div class="info-rows">
+        <div class="info-kv"><span class="info-k">Litter</span><span class="info-v">At minimum once daily. More is always better.</span></div>
+        <div class="info-kv"><span class="info-k">Treats</span><span class="info-v">8–10 bits per cat per day — stick to the limit.</span></div>
+        <div class="info-kv"><span class="info-k">Sky Lounge</span><span class="info-v">Both cats may access it freely — that's fine.</span></div>
+        <div class="info-kv"><span class="info-k">Pet Cam</span><span class="info-v">Available for remote check-ins and engagement.</span></div>
+        <div class="info-kv"><span class="info-k">Separation</span><span class="info-v">Spend individual time with each cat every visit.</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── BUILDING TAB ── -->
+  <div class="tab-panel" id="tab-building">
+
+    <div class="info-card">
+      <div class="info-card-head"><span>🏢</span><h3>Building Access</h3></div>
+      <div class="info-rows">
+        <div class="info-kv"><span class="info-k">Entry</span><span class="info-v">Coordinated remotely by owner. Text ahead of your arrival.</span></div>
+        <div class="info-kv"><span class="info-k">Elevator</span><span class="info-v">Fob required. Keep fob on you at all times inside the building.</span></div>
+        <div class="info-kv"><span class="info-k">Door</span><span class="info-v"><span class="badge bg-warn">⚠️ Auto-closing</span> — hold door carefully. Never let it close on a cat.</span></div>
+        <div class="info-kv"><span class="info-k">Unit</span><span class="info-v">Confirm unit number with the owner before first visit.</span></div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-head"><span>🚗</span><h3>Parking</h3></div>
+      <div class="info-rows">
+        <div class="info-kv"><span class="info-k">Spot</span><span class="info-v">Confirm designated spot with owner.</span></div>
+        <div class="info-kv"><span class="info-k">Access</span><span class="info-v">Confirm fob/code requirements with owner before first visit.</span></div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-head"><span>📞</span><h3>Contacts &amp; Emergencies</h3></div>
+      <div class="info-rows">
+        <div class="info-kv"><span class="info-k">Owner</span><span class="info-v">Contact owner for any questions, concerns, or unusual behaviour.</span></div>
+        <div class="info-kv"><span class="info-k">Vet</span><span class="info-v">Ask owner for the vet's contact before your sitting period begins.</span></div>
+        <div class="info-kv"><span class="info-k">Urgent</span><span class="info-v">If a cat is injured or ill — call the owner immediately, then the vet.</span></div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<!-- Firebase compat SDK (v9) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIGURATION
+// ═══════════════════════════════════════════════
+
+const STORAGE_KEY   = 'catSitterFirebaseConfig';
+const SITTER_KEY    = 'catSitterName';
+
+// Edit sitter names here:
+const SITTERS = ['Sitter 1', 'Sitter 2', 'Sitter 3'];
+
+const CHECKS = [
+  { id: 'feeding',  name: 'Feeding confirmed',  hint: 'Petlibro auto-feeds at scheduled time' },
+  { id: 'water',    name: 'Fresh water',         hint: 'Check & refill water bowl if needed' },
+  { id: 'litter',   name: 'Litter cleaned',      hint: 'At least once daily' },
+  { id: 'playtime', name: 'Playtime',            hint: 'Individual time with each cat' },
+  { id: 'photo',    name: 'Photo sent to owner', hint: 'Send a quick update photo' },
+];
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+
+let db          = null;
+let currentSitter = '';
+let noteTimers  = {};
+let unsubs      = {};
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+
+window.addEventListener('load', () => {
+  // Set date
+  document.getElementById('dateInput').value = todayStr();
+
+  // Render sitter buttons
+  const opts = document.getElementById('sitterOptions');
+  SITTERS.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'sitter-btn';
+    btn.textContent = name;
+    btn.onclick = () => selectSitter(name, btn);
+    opts.appendChild(btn);
+  });
+
+  // Restore sitter
+  const saved = localStorage.getItem(SITTER_KEY);
+  if (saved) {
+    const btn = [...opts.querySelectorAll('.sitter-btn')].find(b => b.textContent === saved);
+    if (btn) { btn.classList.add('active'); currentSitter = saved; }
+  }
+
+  // Render checklists
+  ['morning', 'evening'].forEach(renderChecklist);
+
+  // Firebase config
+  const cfg = localStorage.getItem(STORAGE_KEY);
+  if (cfg) {
+    bootFirebase(JSON.parse(cfg));
+  } else {
+    document.getElementById('setupOverlay').classList.remove('hidden');
+    setSyncStatus('error', 'Not connected');
+  }
+
+  window.addEventListener('online',  () => { document.getElementById('offlineBanner').classList.remove('show'); setSyncStatus('ok', 'Live'); });
+  window.addEventListener('offline', () => { document.getElementById('offlineBanner').classList.add('show');    setSyncStatus('error', 'Offline'); });
+});
+
+// ═══════════════════════════════════════════════
+//  FIREBASE SETUP
+// ═══════════════════════════════════════════════
+
+function saveFirebaseConfig() {
+  const pid = document.getElementById('fb-projectId').value.trim();
+  const key = document.getElementById('fb-apiKey').value.trim();
+  const aid = document.getElementById('fb-appId').value.trim();
+  if (!pid || !key || !aid) { alert('Please fill in all three fields.'); return; }
+  const cfg = { apiKey: key, authDomain: `${pid}.firebaseapp.com`, projectId: pid, appId: aid };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  document.getElementById('setupOverlay').classList.add('hidden');
+  bootFirebase(cfg);
+}
+
+function bootFirebase(cfg) {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    db = firebase.firestore();
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    setSyncStatus('syncing', 'Connecting…');
+    loadData();
+  } catch (e) {
+    console.error('Firebase init failed:', e);
+    setSyncStatus('error', 'Config error');
+  }
+}
+
+function resetConfig() {
+  if (!confirm('Remove Firebase config from this device?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════
+
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  DATE
+// ═══════════════════════════════════════════════
+
+function todayStr() {
+  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+}
+
+function changeDate(d) {
+  const inp = document.getElementById('dateInput');
+  const dt  = new Date(inp.value + 'T12:00:00');
+  dt.setDate(dt.getDate() + d);
+  inp.value = dt.toLocaleDateString('en-CA');
+  loadData();
+}
+
+// ═══════════════════════════════════════════════
+//  SITTER
+// ═══════════════════════════════════════════════
+
+function selectSitter(name, btn) {
+  currentSitter = name;
+  localStorage.setItem(SITTER_KEY, name);
+  document.querySelectorAll('.sitter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  CHECKLIST RENDER
+// ═══════════════════════════════════════════════
+
+function renderChecklist(period) {
+  const el = document.getElementById(`${period}-list`);
+  el.innerHTML = '';
+  CHECKS.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'check-item';
+    row.id = `row-${period}-${c.id}`;
+    row.setAttribute('role', 'checkbox');
+    row.setAttribute('aria-checked', 'false');
+    row.setAttribute('tabindex', '0');
+    row.innerHTML = `
+      <div class="custom-check" id="chk-${period}-${c.id}">✓</div>
+      <div class="check-info">
+        <div class="check-name">${c.name}</div>
+        <div class="check-hint">${c.hint}</div>
+      </div>`;
+    row.onclick = () => toggleCheck(period, c.id);
+    row.onkeydown = e => { if (e.key === ' ' || e.key === 'Enter') toggleCheck(period, c.id); };
+    el.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  DATA LOADING (real-time)
+// ═══════════════════════════════════════════════
+
+function loadData() {
+  if (!db) return;
+  const date = document.getElementById('dateInput').value;
+  Object.values(unsubs).forEach(fn => fn && fn());
+  unsubs = {};
+
+  ['morning', 'evening'].forEach(period => {
+    unsubs[period] = db.collection('visits').doc(`${date}_${period}`)
+      .onSnapshot(snap => {
+        applyData(period, snap.exists ? snap.data() : {});
+        setSyncStatus('ok', 'Live');
+      }, () => setSyncStatus('error', 'Error'));
+  });
+}
+
+function applyData(period, data) {
+  const checks = data.checks || {};
+  let done = 0;
+
+  CHECKS.forEach(c => {
+    const row = document.getElementById(`row-${period}-${c.id}`);
+    const isChecked = !!checks[c.id];
+    if (isChecked) done++;
+    row.classList.toggle('done', isChecked);
+    row.setAttribute('aria-checked', isChecked ? 'true' : 'false');
+  });
+
+  updateProgress(period, done);
+
+  // Notes (don't overwrite while user is typing)
+  const ta = document.getElementById(`${period}-notes`);
+  if (ta && document.activeElement !== ta) ta.value = data.notes || '';
+
+  // Timestamp
+  const ts = document.getElementById(`${period}-ts`);
+  if (ts) {
+    if (data.lastUpdated) {
+      const d = data.lastUpdated.toDate ? data.lastUpdated.toDate() : new Date(data.lastUpdated);
+      ts.textContent = `${data.sitter || '?'}\n${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } else {
+      ts.textContent = '–';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  TOGGLE CHECK
+// ═══════════════════════════════════════════════
+
+function toggleCheck(period, checkId) {
+  if (!db) return;
+  const row = document.getElementById(`row-${period}-${checkId}`);
+  const isNowDone = !row.classList.contains('done');
+  row.classList.toggle('done', isNowDone);
+  row.setAttribute('aria-checked', isNowDone ? 'true' : 'false');
+
+  // Recount locally for instant feedback
+  let done = CHECKS.filter(c => document.getElementById(`row-${period}-${c.id}`)?.classList.contains('done')).length;
+  updateProgress(period, done);
+
+  persistVisit(period);
+}
+
+// ═══════════════════════════════════════════════
+//  NOTES SAVE (debounced)
+// ═══════════════════════════════════════════════
+
+function scheduleNoteSave(period) {
+  clearTimeout(noteTimers[period]);
+  noteTimers[period] = setTimeout(() => persistVisit(period), 900);
+}
+
+// ═══════════════════════════════════════════════
+//  PERSIST TO FIRESTORE
+// ═══════════════════════════════════════════════
+
+function persistVisit(period) {
+  if (!db) return;
+  setSyncStatus('syncing', 'Saving…');
+  const date   = document.getElementById('dateInput').value;
+  const checks = {};
+  CHECKS.forEach(c => { checks[c.id] = document.getElementById(`row-${period}-${c.id}`)?.classList.contains('done') || false; });
+  const notes  = document.getElementById(`${period}-notes`)?.value || '';
+
+  db.collection('visits').doc(`${date}_${period}`).set({
+    date, period, checks, notes,
+    sitter: currentSitter || 'Unknown',
+    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true })
+    .then(() => setSyncStatus('ok', 'Saved'))
+    .catch(() => setSyncStatus('error', 'Offline'));
+}
+
+// ═══════════════════════════════════════════════
+//  PROGRESS
+// ═══════════════════════════════════════════════
+
+function updateProgress(period, done) {
+  const total = CHECKS.length;
+  const pct   = Math.round((done / total) * 100);
+  document.getElementById(`${period}-bar`).style.width   = pct + '%';
+  document.getElementById(`${period}-count`).textContent = `${done} of ${total} done`;
+  document.getElementById(`${period}-pct`).textContent   = pct + '%';
+}
+
+// ═══════════════════════════════════════════════
+//  SYNC STATUS
+// ═══════════════════════════════════════════════
+
+function setSyncStatus(state, label) {
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  if (lbl) lbl.textContent = label || '';
+}
+</script>
+</body>
+</html>
